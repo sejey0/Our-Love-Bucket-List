@@ -1,25 +1,27 @@
 "use client";
 
 import React, { useState } from "react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 import { getRandomQuote } from "@/lib/data";
 
 interface LoginFormProps {
-  onLogin: (answer: string) => boolean;
+  onLogin: (answer: Date) => boolean;
 }
 
 export default function LoginForm({ onLogin }: LoginFormProps) {
-  const [answer, setAnswer] = useState("");
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [error, setError] = useState("");
   const [isShaking, setIsShaking] = useState(false);
   const quote = React.useMemo(() => getRandomQuote(), []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!answer.trim()) {
-      setError("Please enter your answer");
+    if (!selectedDate) {
+      setError("Please select a date");
       return;
     }
-    const success = onLogin(answer);
+    const success = onLogin(selectedDate);
     if (!success) {
       setError("That's not quite right. Try again!");
       setIsShaking(true);
@@ -60,19 +62,28 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
               <label className="block text-sm font-semibold text-wine mb-2">
                 What is our monthsary?
               </label>
-              <input
-                type="text"
-                value={answer}
-                onChange={(e) => {
-                  setAnswer(e.target.value);
-                  setError("");
-                }}
-                placeholder="Enter the date..."
-                className="input-field text-lg"
-                autoFocus
-              />
+              <div className="flex justify-center">
+                <DatePicker
+                  selected={selectedDate}
+                  onChange={(date: Date | null) => {
+                    setSelectedDate(date);
+                    setError("");
+                  }}
+                  inline
+                  dateFormat="MMMM d, yyyy"
+                  showMonthDropdown
+                  showYearDropdown
+                  dropdownMode="select"
+                  yearDropdownItemNumber={15}
+                />
+              </div>
+              {selectedDate && (
+                <p className="mt-2 text-center text-sm text-rose-gold font-semibold">
+                  Selected: {selectedDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                </p>
+              )}
               {error && (
-                <p className="mt-2 text-sm text-wine animate-slide-down">
+                <p className="mt-2 text-sm text-wine animate-slide-down text-center">
                   {error}
                 </p>
               )}
@@ -85,7 +96,7 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
 
           {/* Hint */}
           <p className="text-center text-xs text-rose/80 mt-4">
-            Hint: Month Day Year (e.g., January 1 2025)
+            Hint: Select our special date on the calendar
           </p>
         </div>
 

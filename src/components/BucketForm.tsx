@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 import { BucketItem, CATEGORIES, PRIORITIES, STATUSES } from "@/types/bucket";
 import { getRandomBucketIdea } from "@/lib/data";
 import toast from "react-hot-toast";
@@ -27,7 +29,9 @@ export default function BucketForm({
   const [status, setStatus] = useState<string>(
     editItem?.status || "Not Started",
   );
-  const [targetDate, setTargetDate] = useState(editItem?.target_date || "");
+  const [targetDate, setTargetDate] = useState<Date | null>(
+    editItem?.target_date ? new Date(editItem.target_date) : null,
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isExpanded, setIsExpanded] = useState(!!editItem);
 
@@ -45,7 +49,7 @@ export default function BucketForm({
         category,
         priority: priority as BucketItem["priority"],
         status: status as BucketItem["status"],
-        target_date: targetDate || null,
+        target_date: targetDate ? targetDate.toISOString().split("T")[0] : null,
       });
       if (!editItem) {
         setTitle("");
@@ -53,7 +57,7 @@ export default function BucketForm({
         setCategory("Personal");
         setPriority("Medium");
         setStatus("Not Started");
-        setTargetDate("");
+        setTargetDate(null);
         setIsExpanded(false);
       }
     } finally {
@@ -158,17 +162,39 @@ export default function BucketForm({
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-rose-gold/70 mb-1">
-                  Target Date
-                </label>
-                <input
-                  type="date"
-                  value={targetDate}
-                  onChange={(e) => setTargetDate(e.target.value)}
-                  className="input-field text-sm py-2"
-                />
-              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-rose-gold/70 mb-1">
+                Target Date
+                {targetDate && (
+                  <span className="ml-2 text-rose-gold font-normal">
+                    —{" "}
+                    {targetDate.toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                    <button
+                      type="button"
+                      onClick={() => setTargetDate(null)}
+                      className="ml-1 text-rose-gold/50 hover:text-rose-gold"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                )}
+              </label>
+              <DatePicker
+                selected={targetDate}
+                onChange={(date: Date | null) => setTargetDate(date)}
+                inline
+                dateFormat="MMM d, yyyy"
+                showMonthDropdown
+                showYearDropdown
+                dropdownMode="select"
+                yearDropdownItemNumber={15}
+              />
             </div>
 
             <div className="flex gap-2 justify-end">

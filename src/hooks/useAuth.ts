@@ -12,10 +12,13 @@ export function useAuth() {
     setIsLoading(false);
   }, []);
 
-  const login = useCallback((answer: string): boolean => {
-    const normalized = answer.trim().toLowerCase().replace(/[,]/g, "");
-    const correct = "july 15 2025";
-    if (normalized === correct) {
+  const login = useCallback((answer: Date): boolean => {
+    const correct = new Date(2025, 6, 15); // July 15, 2025 (month is 0-indexed)
+    if (
+      answer.getFullYear() === correct.getFullYear() &&
+      answer.getMonth() === correct.getMonth() &&
+      answer.getDate() === correct.getDate()
+    ) {
       localStorage.setItem("bucket-list-auth", "true");
       setIsAuthenticated(true);
       return true;
