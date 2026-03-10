@@ -45,7 +45,7 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
         >
           {/* Logo */}
           <div className="text-center mb-4">
-            <h1 className="heading-cursive text-4xl text-gradient mb-1">
+            <h1 className="text-2xl font-bold text-gradient mb-1">
               Our Bucket List
             </h1>
             <p className="text-rose-gold/60 text-xs">

@@ -11,7 +11,7 @@ export default function Header({ onLogout }: HeaderProps) {
     <header className="sticky top-0 z-50 border-b border-rose/20" style={{ backgroundColor: '#b76e79' }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
         <div>
-          <h1 className="heading-cursive text-2xl text-white">
+          <h1 className="text-xl font-bold text-white">
             Our Bucket List
           </h1>
         </div>
