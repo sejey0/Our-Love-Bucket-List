@@ -1,27 +1,27 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { getRandomQuote } from '@/lib/data';
+import React, { useState } from "react";
+import { getRandomQuote } from "@/lib/data";
 
 interface LoginFormProps {
   onLogin: (answer: string) => boolean;
 }
 
 export default function LoginForm({ onLogin }: LoginFormProps) {
-  const [answer, setAnswer] = useState('');
-  const [error, setError] = useState('');
+  const [answer, setAnswer] = useState("");
+  const [error, setError] = useState("");
   const [isShaking, setIsShaking] = useState(false);
   const quote = React.useMemo(() => getRandomQuote(), []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!answer.trim()) {
-      setError('Please enter your answer');
+      setError("Please enter your answer");
       return;
     }
     const success = onLogin(answer);
     if (!success) {
-      setError('That\'s not quite right. Try again! 💭');
+      setError("That's not quite right. Try again! 💭");
       setIsShaking(true);
       setTimeout(() => setIsShaking(false), 500);
     }
@@ -30,13 +30,17 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className={`card animate-fade-in ${isShaking ? 'animate-bounce-soft' : ''}`}>
+        <div
+          className={`card animate-fade-in ${isShaking ? "animate-bounce-soft" : ""}`}
+        >
           {/* Logo */}
           <div className="text-center mb-8">
             <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center shadow-xl shadow-pink-500/25 mb-4">
               <span className="text-4xl">💝</span>
             </div>
-            <h1 className="text-3xl font-bold text-gradient mb-2">Our Bucket List</h1>
+            <h1 className="text-3xl font-bold text-gradient mb-2">
+              Our Bucket List
+            </h1>
             <p className="text-slate-500 dark:text-slate-400 text-sm">
               Answer the question to unlock our adventures
             </p>
@@ -53,7 +57,7 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
                 value={answer}
                 onChange={(e) => {
                   setAnswer(e.target.value);
-                  setError('');
+                  setError("");
                 }}
                 placeholder="Enter the date..."
                 className="input-field text-lg"

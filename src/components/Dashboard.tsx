@@ -1,17 +1,22 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import toast from 'react-hot-toast';
-import { BucketItem } from '@/types/bucket';
-import Header from './Header';
-import BucketForm from './BucketForm';
-import BucketCard from './BucketCard';
-import FilterBar from './FilterBar';
-import ProgressBar from './ProgressBar';
-import CategoryChart from './CategoryChart';
-import QuoteCard from './QuoteCard';
-import ExportButton from './ExportButton';
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  DragDropContext,
+  Droppable,
+  Draggable,
+  DropResult,
+} from "@hello-pangea/dnd";
+import toast from "react-hot-toast";
+import { BucketItem } from "@/types/bucket";
+import Header from "./Header";
+import BucketForm from "./BucketForm";
+import BucketCard from "./BucketCard";
+import FilterBar from "./FilterBar";
+import ProgressBar from "./ProgressBar";
+import CategoryChart from "./CategoryChart";
+import QuoteCard from "./QuoteCard";
+import ExportButton from "./ExportButton";
 
 interface DashboardProps {
   onLogout: () => void;
@@ -24,29 +29,29 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   const [editItem, setEditItem] = useState<BucketItem | null>(null);
 
   // Filters
-  const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('All');
-  const [statusFilter, setStatusFilter] = useState('All');
-  const [priorityFilter, setPriorityFilter] = useState('All');
-  const [sortBy, setSortBy] = useState('sort_order');
-  const [sortOrder, setSortOrder] = useState('asc');
+  const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("All");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [priorityFilter, setPriorityFilter] = useState("All");
+  const [sortBy, setSortBy] = useState("sort_order");
+  const [sortOrder, setSortOrder] = useState("asc");
 
   const fetchItems = useCallback(async () => {
     try {
       const params = new URLSearchParams();
-      if (categoryFilter !== 'All') params.set('category', categoryFilter);
-      if (statusFilter !== 'All') params.set('status', statusFilter);
-      if (priorityFilter !== 'All') params.set('priority', priorityFilter);
-      if (search) params.set('search', search);
-      params.set('sortBy', sortBy);
-      params.set('sortOrder', sortOrder);
+      if (categoryFilter !== "All") params.set("category", categoryFilter);
+      if (statusFilter !== "All") params.set("status", statusFilter);
+      if (priorityFilter !== "All") params.set("priority", priorityFilter);
+      if (search) params.set("search", search);
+      params.set("sortBy", sortBy);
+      params.set("sortOrder", sortOrder);
 
       const res = await fetch(`/api/buckets?${params.toString()}`);
-      if (!res.ok) throw new Error('Failed to fetch');
+      if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       setItems(data);
     } catch (err) {
-      toast.error('Failed to load bucket items');
+      toast.error("Failed to load bucket items");
     } finally {
       setIsLoading(false);
     }
@@ -54,8 +59,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
   const fetchAllItems = useCallback(async () => {
     try {
-      const res = await fetch('/api/buckets');
-      if (!res.ok) throw new Error('Failed to fetch');
+      const res = await fetch("/api/buckets");
+      if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       setAllItems(data);
     } catch {
@@ -73,17 +78,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
   const handleAdd = async (itemData: Partial<BucketItem>) => {
     try {
-      const res = await fetch('/api/buckets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/buckets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(itemData),
       });
-      if (!res.ok) throw new Error('Failed to create');
-      toast.success('Dream added to the list! 💕');
+      if (!res.ok) throw new Error("Failed to create");
+      toast.success("Dream added to the list! 💕");
       fetchItems();
       fetchAllItems();
     } catch {
-      toast.error('Failed to add item');
+      toast.error("Failed to add item");
     }
   };
 
@@ -91,57 +96,57 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     if (!editItem) return;
     try {
       const res = await fetch(`/api/buckets/${editItem.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(itemData),
       });
-      if (!res.ok) throw new Error('Failed to update');
-      toast.success('Item updated! ✨');
+      if (!res.ok) throw new Error("Failed to update");
+      toast.success("Item updated! ✨");
       setEditItem(null);
       fetchItems();
       fetchAllItems();
     } catch {
-      toast.error('Failed to update item');
+      toast.error("Failed to update item");
     }
   };
 
   const handleToggleComplete = async (item: BucketItem) => {
-    const newStatus = item.status === 'Completed' ? 'Not Started' : 'Completed';
+    const newStatus = item.status === "Completed" ? "Not Started" : "Completed";
     try {
       const res = await fetch(`/api/buckets/${item.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
       });
-      if (!res.ok) throw new Error('Failed to update');
-      if (newStatus === 'Completed') {
-        toast.success('Dream achieved! 🎉🥳', { duration: 3000 });
+      if (!res.ok) throw new Error("Failed to update");
+      if (newStatus === "Completed") {
+        toast.success("Dream achieved! 🎉🥳", { duration: 3000 });
       } else {
-        toast('Marked as not started', { icon: '↩️' });
+        toast("Marked as not started", { icon: "↩️" });
       }
       fetchItems();
       fetchAllItems();
     } catch {
-      toast.error('Failed to update status');
+      toast.error("Failed to update status");
     }
   };
 
   const handleDelete = async (id: string) => {
     try {
       const res = await fetch(`/api/buckets/${id}`, {
-        method: 'DELETE',
+        method: "DELETE",
       });
-      if (!res.ok) throw new Error('Failed to delete');
-      toast.success('Item removed');
+      if (!res.ok) throw new Error("Failed to delete");
+      toast.success("Item removed");
       fetchItems();
       fetchAllItems();
     } catch {
-      toast.error('Failed to delete item');
+      toast.error("Failed to delete item");
     }
   };
 
   const handleDragEnd = async (result: DropResult) => {
-    if (!result.destination || sortBy !== 'sort_order') return;
+    if (!result.destination || sortBy !== "sort_order") return;
 
     const reordered = Array.from(items);
     const [moved] = reordered.splice(result.source.index, 1);
@@ -155,9 +160,9 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     setItems(updated);
 
     try {
-      await fetch('/api/buckets/reorder', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+      await fetch("/api/buckets/reorder", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           items: updated.map((item) => ({
             id: item.id,
@@ -166,7 +171,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         }),
       });
     } catch {
-      toast.error('Failed to save order');
+      toast.error("Failed to save order");
       fetchItems();
     }
   };
@@ -229,20 +234,28 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20">
             <div className="w-12 h-12 border-4 border-pink-200 border-t-pink-500 rounded-full animate-spin" />
-            <p className="mt-4 text-slate-500 dark:text-slate-400">Loading your dreams...</p>
+            <p className="mt-4 text-slate-500 dark:text-slate-400">
+              Loading your dreams...
+            </p>
           </div>
         ) : items.length === 0 ? (
           <div className="text-center py-20 animate-fade-in">
             <div className="text-6xl mb-4">🌟</div>
             <h3 className="text-xl font-semibold text-slate-600 dark:text-slate-300 mb-2">
-              {search || categoryFilter !== 'All' || statusFilter !== 'All' || priorityFilter !== 'All'
-                ? 'No items match your filters'
-                : 'No dreams yet!'}
+              {search ||
+              categoryFilter !== "All" ||
+              statusFilter !== "All" ||
+              priorityFilter !== "All"
+                ? "No items match your filters"
+                : "No dreams yet!"}
             </h3>
             <p className="text-slate-500 dark:text-slate-400">
-              {search || categoryFilter !== 'All' || statusFilter !== 'All' || priorityFilter !== 'All'
-                ? 'Try adjusting your filters'
-                : 'Add your first bucket list item above to get started'}
+              {search ||
+              categoryFilter !== "All" ||
+              statusFilter !== "All" ||
+              priorityFilter !== "All"
+                ? "Try adjusting your filters"
+                : "Add your first bucket list item above to get started"}
             </p>
           </div>
         ) : (
@@ -259,7 +272,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                       key={item.id}
                       draggableId={item.id}
                       index={index}
-                      isDragDisabled={sortBy !== 'sort_order'}
+                      isDragDisabled={sortBy !== "sort_order"}
                     >
                       {(provided, snapshot) => (
                         <div
@@ -267,13 +280,23 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                           {...provided.draggableProps}
                         >
                           <div className="flex items-start gap-2">
-                            {sortBy === 'sort_order' && (
+                            {sortBy === "sort_order" && (
                               <div
                                 {...provided.dragHandleProps}
                                 className="mt-6 p-1 cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
                               >
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                                <svg
+                                  className="w-5 h-5"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  strokeWidth={1.5}
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
+                                  />
                                 </svg>
                               </div>
                             )}

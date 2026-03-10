@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { Toaster } from 'react-hot-toast';
-import { useAuth } from '@/hooks/useAuth';
-import LoginForm from '@/components/LoginForm';
-import Dashboard from '@/components/Dashboard';
+import React from "react";
+import { Toaster } from "react-hot-toast";
+import { useAuth } from "@/hooks/useAuth";
+import LoginForm from "@/components/LoginForm";
+import Dashboard from "@/components/Dashboard";
 
 export default function Home() {
   const { isAuthenticated, isLoading, login, logout } = useAuth();
@@ -29,12 +29,12 @@ export default function Home() {
         toastOptions={{
           duration: 3000,
           style: {
-            background: '#fff',
-            color: '#1e293b',
-            borderRadius: '12px',
-            padding: '12px 16px',
-            boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)',
-            fontSize: '14px',
+            background: "#fff",
+            color: "#1e293b",
+            borderRadius: "12px",
+            padding: "12px 16px",
+            boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1)",
+            fontSize: "14px",
           },
         }}
       />

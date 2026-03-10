@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { CATEGORIES, STATUSES, PRIORITIES } from '@/types/bucket';
+import React from "react";
+import { CATEGORIES, STATUSES, PRIORITIES } from "@/types/bucket";
 
 interface FilterBarProps {
   search: string;
@@ -68,7 +68,9 @@ export default function FilterBar({
           >
             <option value="All">All Categories</option>
             {CATEGORIES.map((cat) => (
-              <option key={cat} value={cat}>{cat}</option>
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
             ))}
           </select>
 
@@ -79,7 +81,9 @@ export default function FilterBar({
           >
             <option value="All">All Statuses</option>
             {STATUSES.map((s) => (
-              <option key={s} value={s}>{s}</option>
+              <option key={s} value={s}>
+                {s}
+              </option>
             ))}
           </select>
 
@@ -90,7 +94,9 @@ export default function FilterBar({
           >
             <option value="All">All Priorities</option>
             {PRIORITIES.map((p) => (
-              <option key={p} value={p}>{p}</option>
+              <option key={p} value={p}>
+                {p}
+              </option>
             ))}
           </select>
 
