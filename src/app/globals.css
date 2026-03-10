@@ -63,6 +63,8 @@
 
   .heading-cursive {
     font-family: var(--font-great-vibes), "Great Vibes", cursive;
+    line-height: 1.4;
+    padding-top: 0.15em;
   }
 }
 
@@ -262,4 +264,23 @@
 
 .react-datepicker__month-container {
   padding: 4px !important;
+}
+
+.react-datepicker__month-dropdown-container select,
+.react-datepicker__year-dropdown-container select,
+.react-datepicker__month-dropdown-container--select select,
+.react-datepicker__year-dropdown-container--select select {
+  border: 1px solid #fff !important;
+  background: transparent !important;
+  color: #fff !important;
+  border-radius: 9999px !important;
+  padding: 2px 6px !important;
+  font-size: 0.8rem !important;
+  outline: none !important;
+}
+
+.react-datepicker__month-dropdown-container select option,
+.react-datepicker__year-dropdown-container select option {
+  background: #b76e79 !important;
+  color: #fff !important;
 }

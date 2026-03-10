@@ -39,28 +39,25 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
       <div className="floating-heart">&#x2665;</div>
       <div className="floating-heart">&#x2665;</div>
 
-      <div className="w-full max-w-md relative z-10">
+      <div className="w-full max-w-sm relative z-10">
         <div
-          className={`card animate-fade-in ${isShaking ? "animate-bounce-soft" : ""}`}
+          className={`card animate-fade-in p-5 ${isShaking ? "animate-bounce-soft" : ""}`}
         >
           {/* Logo */}
-          <div className="text-center mb-8">
-            <div className="w-20 h-20 mx-auto rounded-full bg-gradient-romantic flex items-center justify-center shadow-rose-lg mb-4">
-              <span className="text-4xl">💝</span>
-            </div>
-            <h1 className="heading-cursive text-5xl text-gradient mb-2">
+          <div className="text-center mb-4">
+            <h1 className="heading-cursive text-4xl text-gradient mb-1">
               Our Bucket List
             </h1>
-            <p className="text-rose-gold/60 text-sm">
+            <p className="text-rose-gold/60 text-xs">
               Answer the question to unlock our adventures
             </p>
           </div>
 
           {/* Security Question */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3">
             <div>
-              <label className="block text-sm font-semibold text-wine mb-2">
-                What is our monthsary?
+              <label className="block text-xs font-semibold text-wine mb-1.5 text-center">
+                What is the day you said yes?
               </label>
               <div className="flex justify-center">
                 <DatePicker
@@ -78,31 +75,31 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
                 />
               </div>
               {selectedDate && (
-                <p className="mt-2 text-center text-sm text-rose-gold font-semibold">
+                <p className="mt-1.5 text-center text-xs text-rose-gold font-semibold">
                   Selected: {selectedDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
                 </p>
               )}
               {error && (
-                <p className="mt-2 text-sm text-wine animate-slide-down text-center">
+                <p className="mt-1.5 text-xs text-wine animate-slide-down text-center">
                   {error}
                 </p>
               )}
             </div>
 
-            <button type="submit" className="btn-primary w-full text-lg py-3">
+            <button type="submit" className="btn-primary w-full text-sm py-2.5">
               Unlock Our List
             </button>
           </form>
 
           {/* Hint */}
-          <p className="text-center text-xs text-rose/80 mt-4">
+          <p className="text-center text-xs text-rose/80 mt-3">
             Hint: Select our special date on the calendar
           </p>
         </div>
 
         {/* Quote */}
-        <div className="mt-6 text-center animate-fade-in">
-          <p className="text-sm text-rose-gold/70 italic">
+        <div className="mt-4 text-center animate-fade-in">
+          <p className="text-xs text-rose-gold/70 italic">
             &ldquo;{quote.quote}&rdquo;
           </p>
           <p className="text-xs text-rose/60 mt-1">— {quote.author}</p>
