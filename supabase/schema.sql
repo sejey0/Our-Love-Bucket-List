@@ -53,10 +53,14 @@ CREATE TRIGGER update_buckets_updated_at
   EXECUTE FUNCTION update_updated_at_column();
 
 -- Create the checklists table (groups of checklist items)
+-- Add target_date to bucket_lists if not exists
+-- ALTER TABLE bucket_lists ADD COLUMN IF NOT EXISTS target_date DATE;
+
 CREATE TABLE IF NOT EXISTS checklists (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   name TEXT NOT NULL,
   description TEXT DEFAULT '',
+  target_date DATE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   user_id TEXT DEFAULT 'default'

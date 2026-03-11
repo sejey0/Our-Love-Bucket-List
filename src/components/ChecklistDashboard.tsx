@@ -11,6 +11,7 @@ export default function ChecklistDashboard() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newListName, setNewListName] = useState("");
   const [newListDesc, setNewListDesc] = useState("");
+  const [newListDate, setNewListDate] = useState("");
   const [newItems, setNewItems] = useState<Record<string, string>>({});
   const [viewingChecklist, setViewingChecklist] =
     useState<ChecklistGroup | null>(null);
@@ -22,6 +23,8 @@ export default function ChecklistDashboard() {
   const [renameValue, setRenameValue] = useState("");
   const [editingListDesc, setEditingListDesc] = useState<string | null>(null);
   const [editListDescValue, setEditListDescValue] = useState("");
+  const [editingListDate, setEditingListDate] = useState<string | null>(null);
+  const [editListDateValue, setEditListDateValue] = useState("");
   const [deletingList, setDeletingList] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [editCounts, setEditCounts] = useState<Record<string, number>>({});
@@ -153,6 +156,7 @@ export default function ChecklistDashboard() {
       id: `temp-${Date.now()}`,
       name: newListName.trim(),
       description: newListDesc.trim(),
+      target_date: newListDate || null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       user_id: "default",
@@ -160,6 +164,7 @@ export default function ChecklistDashboard() {
     setChecklists((prev) => [...prev, tempList]);
     setNewListName("");
     setNewListDesc("");
+    setNewListDate("");
     setShowCreateForm(false);
     toast.success("Checklist created!");
     try {
@@ -169,6 +174,7 @@ export default function ChecklistDashboard() {
         body: JSON.stringify({
           name: tempList.name,
           description: tempList.description,
+          target_date: tempList.target_date,
         }),
       });
       if (!res.ok) throw new Error("Failed to create");
@@ -260,6 +266,29 @@ export default function ChecklistDashboard() {
     } catch {
       setChecklists(original);
       toast.error("Failed to update description");
+    }
+  };
+
+  const handleEditListDate = async (id: string) => {
+    const original = checklists;
+    const newDate = editListDateValue || null;
+    setChecklists(
+      checklists.map((l) => (l.id === id ? { ...l, target_date: newDate } : l)),
+    );
+    setEditingListDate(null);
+    setEditListDateValue("");
+    incrementEditCount(id, "date");
+    toast.success("Date updated!");
+    try {
+      const res = await fetch(`/api/checklists/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target_date: newDate }),
+      });
+      if (!res.ok) throw new Error("Failed to update");
+    } catch {
+      setChecklists(original);
+      toast.error("Failed to update date");
     }
   };
 
@@ -528,12 +557,28 @@ export default function ChecklistDashboard() {
                   placeholder="Description (optional)"
                   className="input-field text-sm py-2"
                 />
+                <div>
+                  <input
+                    type="date"
+                    value={newListDate}
+                    onChange={(e) => setNewListDate(e.target.value)}
+                    className="input-field text-sm py-2 w-full"
+                    title="Target date (optional)"
+                  />
+                  <p
+                    className="text-[10px] mt-0.5"
+                    style={{ color: "rgba(183,110,121,0.6)" }}
+                  >
+                    Target date (optional)
+                  </p>
+                </div>
                 <div className="flex gap-2 justify-end">
                   <button
                     onClick={() => {
                       setShowCreateForm(false);
                       setNewListName("");
                       setNewListDesc("");
+                      setNewListDate("");
                     }}
                     className="px-4 py-2 text-sm rounded-pill border border-rose/20 text-rose-gold hover:bg-blush transition-colors duration-150"
                   >
@@ -618,7 +663,54 @@ export default function ChecklistDashboard() {
                         <div className="flex items-center gap-1.5">
                           <h2 className="text-base font-bold text-gradient truncate">
                             {list.name}
+                            {!editingListDate || editingListDate !== list.id ? (
+                              <>
+                                {list.target_date && (
+                                  <span
+                                    className="text-xs font-normal ml-1"
+                                    style={{ color: "rgba(183,110,121,0.7)" }}
+                                  >
+                                    (
+                                    {new Date(
+                                      list.target_date + "T00:00:00",
+                                    ).toLocaleDateString("en-US", {
+                                      year: "numeric",
+                                      month: "short",
+                                      day: "numeric",
+                                    })}
+                                    )
+                                  </span>
+                                )}
+                              </>
+                            ) : null}
                           </h2>
+                          {canEdit(list.id, "date") &&
+                            editingListDate !== list.id && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingListDate(list.id);
+                                  setEditListDateValue(list.target_date || "");
+                                }}
+                                className="p-0.5 rounded-lg hover:bg-blush/50 transition-colors duration-150 flex-shrink-0"
+                                style={{ color: "#b76e79" }}
+                                title={`Edit date (${3 - getEditCount(list.id, "date")} left)`}
+                              >
+                                <svg
+                                  className="w-3 h-3"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  strokeWidth={1.5}
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
+                                  />
+                                </svg>
+                              </button>
+                            )}
                           {canEdit(list.id, "name") && (
                             <button
                               onClick={() => {
@@ -646,6 +738,44 @@ export default function ChecklistDashboard() {
                           )}
                         </div>
                       )}
+
+                      {/* Editable Date */}
+                      {editingListDate === list.id ? (
+                        <form
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            handleEditListDate(list.id);
+                          }}
+                          className="flex gap-2 mt-1"
+                        >
+                          <input
+                            type="date"
+                            value={editListDateValue}
+                            onChange={(e) =>
+                              setEditListDateValue(e.target.value)
+                            }
+                            className="input-field flex-1 text-xs py-1"
+                            autoFocus
+                          />
+                          <button
+                            type="submit"
+                            className="btn-primary text-xs px-3 py-1"
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingListDate(null);
+                              setEditListDateValue("");
+                            }}
+                            className="text-xs px-2 py-1 rounded-pill border border-rose/20 hover:bg-blush transition-colors duration-150"
+                            style={{ color: "#b76e79" }}
+                          >
+                            Cancel
+                          </button>
+                        </form>
+                      ) : null}
 
                       {/* Editable Description */}
                       {editingListDesc === list.id ? (
@@ -724,7 +854,8 @@ export default function ChecklistDashboard() {
                       )}
                     </div>
                     {renamingList !== list.id &&
-                      editingListDesc !== list.id && (
+                      editingListDesc !== list.id &&
+                      editingListDate !== list.id && (
                         <div className="flex items-center gap-1 flex-shrink-0 ml-2">
                           <button
                             onClick={() => {

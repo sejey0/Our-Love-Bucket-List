@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
         {
           name: body.name,
           description: body.description || "",
+          target_date: body.target_date || null,
           user_id: "default",
         },
       ])
