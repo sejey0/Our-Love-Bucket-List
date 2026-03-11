@@ -541,7 +541,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     if (viewingGalleryItem && viewingGalleryItem.id === itemId) {
       setViewingGalleryItem({
         ...viewingGalleryItem,
-        description: desc || null,
+        description: desc || "",
       });
     }
     setEditingNotes(false);
