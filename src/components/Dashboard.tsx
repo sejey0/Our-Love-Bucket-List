@@ -44,19 +44,44 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const completeFileRef = useRef<HTMLInputElement>(null);
 
-  // Load custom bucket lists from localStorage
-  useEffect(() => {
-    const stored = localStorage.getItem("bucket-lists");
-    if (stored) {
-      setBucketLists(JSON.parse(stored));
+  const fetchBucketLists = useCallback(async () => {
+    try {
+      const res = await fetch("/api/lists");
+      if (!res.ok) throw new Error("Failed to fetch lists");
+      const data = await res.json();
+      setBucketLists(data);
+      try {
+        localStorage.setItem("cached-bucket-lists", JSON.stringify(data));
+      } catch { /* quota exceeded, ignore */ }
+
+      // Auto-migrate localStorage bucket lists to Supabase (one-time)
+      const stored = localStorage.getItem("bucket-lists");
+      if (stored) {
+        try {
+          const localLists: BucketList[] = JSON.parse(stored);
+          const serverNames = new Set(data.map((l: BucketList) => l.name));
+          const toMigrate = localLists.filter((l) => !serverNames.has(l.name));
+          for (const list of toMigrate) {
+            await fetch("/api/lists", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ name: list.name, description: list.description }),
+            });
+          }
+          if (toMigrate.length > 0) {
+            const refreshRes = await fetch("/api/lists");
+            if (refreshRes.ok) {
+              const refreshed = await refreshRes.json();
+              setBucketLists(refreshed);
+            }
+          }
+        } catch { /* ignore migration errors */ }
+        localStorage.removeItem("bucket-lists");
+      }
+    } catch {
+      console.error("Failed to fetch bucket lists");
     }
   }, []);
-
-  // Save bucket lists to localStorage
-  const saveBucketLists = (lists: BucketList[]) => {
-    setBucketLists(lists);
-    localStorage.setItem("bucket-lists", JSON.stringify(lists));
-  };
 
   const fetchItems = useCallback(async () => {
     try {
@@ -79,8 +104,12 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     }
   }, []);
 
-  // Load cached items instantly, then refresh from server
+  // Load cached data instantly, then refresh from server
   useEffect(() => {
+    const cachedLists = localStorage.getItem("cached-bucket-lists");
+    if (cachedLists) {
+      try { setBucketLists(JSON.parse(cachedLists)); } catch { /* ignore */ }
+    }
     const cached = localStorage.getItem("cached-items");
     if (cached) {
       try {
@@ -88,50 +117,100 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         setIsLoading(false);
       } catch { /* ignore bad cache */ }
     }
+    fetchBucketLists();
     fetchItems();
-  }, [fetchItems]);
+  }, [fetchBucketLists, fetchItems]);
 
-  const handleCreateList = () => {
+  const handleCreateList = async () => {
     if (!newListName.trim()) {
       toast.error("Please enter a name");
       return;
     }
-    const newList: BucketList = {
-      id: Date.now().toString(),
+    const tempList: BucketList = {
+      id: `temp-${Date.now()}`,
       name: newListName.trim(),
       description: newListDesc.trim(),
     };
-    saveBucketLists([...bucketLists, newList]);
+    setBucketLists((prev) => [...prev, tempList]);
     setNewListName("");
     setNewListDesc("");
     setShowCreateForm(false);
     toast.success("Bucket list created!");
+    try {
+      const res = await fetch("/api/lists", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: tempList.name, description: tempList.description }),
+      });
+      if (!res.ok) throw new Error("Failed to create");
+      const created = await res.json();
+      setBucketLists((prev) => prev.map((l) => l.id === tempList.id ? created : l));
+    } catch {
+      setBucketLists((prev) => prev.filter((l) => l.id !== tempList.id));
+      toast.error("Failed to save bucket list");
+    }
   };
 
-  const handleDeleteList = (id: string) => {
+  const handleDeleteList = async (id: string) => {
     if (deleteConfirm.toLowerCase() !== "i love you") {
       toast.error("Type 'i love you' to confirm deletion");
       return;
     }
-    saveBucketLists(bucketLists.filter((l) => l.id !== id));
+    const original = bucketLists;
+    setBucketLists(bucketLists.filter((l) => l.id !== id));
     setDeletingList(null);
     setDeleteConfirm("");
     toast.success("Bucket list removed");
+    try {
+      const res = await fetch(`/api/lists/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete");
+    } catch {
+      setBucketLists(original);
+      toast.error("Failed to delete bucket list");
+    }
   };
 
-  const handleRenameList = (id: string) => {
+  const handleRenameList = async (id: string) => {
     if (!renameValue.trim()) {
       toast.error("Name cannot be empty");
       return;
     }
-    saveBucketLists(
+    const original = bucketLists;
+    const oldName = bucketLists.find((l) => l.id === id)?.name;
+    const newName = renameValue.trim();
+    setBucketLists(
       bucketLists.map((l) =>
-        l.id === id ? { ...l, name: renameValue.trim() } : l
+        l.id === id ? { ...l, name: newName } : l
       )
     );
     setRenamingList(null);
     setRenameValue("");
     toast.success("Renamed!");
+    try {
+      const res = await fetch(`/api/lists/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newName }),
+      });
+      if (!res.ok) throw new Error("Failed to rename");
+      // Update items' category to match new name
+      if (oldName) {
+        const itemsToUpdate = items.filter((i) => i.category === oldName);
+        for (const item of itemsToUpdate) {
+          await fetch(`/api/buckets/${item.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ category: newName }),
+          });
+        }
+        setItems((prev) =>
+          prev.map((i) => i.category === oldName ? { ...i, category: newName } : i)
+        );
+      }
+    } catch {
+      setBucketLists(original);
+      toast.error("Failed to rename bucket list");
+    }
   };
 
   const handleAddItem = async (category: string) => {
