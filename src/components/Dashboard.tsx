@@ -24,12 +24,15 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   const [newListDesc, setNewListDesc] = useState("");
   const [newItems, setNewItems] = useState<Record<string, string>>({});
   const [viewingList, setViewingList] = useState<BucketList | null>(null);
-  const [viewingCompleted, setViewingCompleted] = useState<BucketList | null>(null);
+  const [viewingCompleted, setViewingCompleted] = useState<BucketList | null>(
+    null
+  );
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
-  const [viewingGalleryItem, setViewingGalleryItem] = useState<BucketItem | null>(null);
+  const [viewingGalleryItem, setViewingGalleryItem] =
+    useState<BucketItem | null>(null);
   const [renamingList, setRenamingList] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [deletingList, setDeletingList] = useState<string | null>(null);
@@ -58,11 +61,15 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   const fetchItems = useCallback(async () => {
     try {
       const res = await fetch("/api/buckets");
-      if (!res.ok) throw new Error("Failed to fetch");
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to fetch");
+      }
       const data = await res.json();
       setItems(data);
-    } catch {
-      toast.error("Failed to load items");
+    } catch (err) {
+      console.error("Fetch items error:", err);
+      toast.error(err instanceof Error ? err.message : "Failed to load items");
     } finally {
       setIsLoading(false);
     }
@@ -132,23 +139,25 @@ export default function Dashboard({ onLogout }: DashboardProps) {
           status: "Not Started",
         }),
       });
-      if (!res.ok) throw new Error("Failed to create");
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to create");
+      }
       toast.success("Added!");
       setNewItems((prev) => ({ ...prev, [category]: "" }));
       fetchItems();
-    } catch {
-      toast.error("Failed to add item");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add item");
     }
   };
 
   const handleToggleComplete = async (item: BucketItem) => {
     if (item.status === "Completed") {
-      // Undo completion
       try {
         const res = await fetch(`/api/buckets/${item.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: "Not Started" }),
+          body: JSON.stringify({ status: "Not Started", completed_at: null }),
         });
         if (!res.ok) throw new Error("Failed to update");
         fetchItems();
@@ -156,7 +165,6 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         toast.error("Failed to update");
       }
     } else {
-      // Open completion modal
       setCompletingItem(item);
       setCompleteDesc("");
       setCompletePhotos([]);
@@ -170,7 +178,9 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       const updateData: Record<string, unknown> = {
         status: "Completed",
         description: completeDesc.trim() || completingItem.description,
-        completed_at: completeDate ? new Date(completeDate).toISOString() : new Date().toISOString(),
+        completed_at: completeDate
+          ? new Date(completeDate).toISOString()
+          : new Date().toISOString(),
       };
       if (completePhotos.length > 0) {
         updateData.photo_url = JSON.stringify(completePhotos);
@@ -193,9 +203,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
   const handleDeleteItem = async (id: string) => {
     try {
-      const res = await fetch(`/api/buckets/${id}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(`/api/buckets/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete");
       toast.success("Removed!");
       fetchItems();
@@ -225,10 +233,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     }
   };
 
-  const handleUploadPhoto = async (
-    itemId: string,
-    file: File
-  ) => {
+  const handleUploadPhoto = (itemId: string, file: File) => {
     if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
       toast.error("Please select an image or video file");
       return;
@@ -237,13 +242,13 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       toast.error("File must be under 10MB");
       return;
     }
-    try {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const base64 = reader.result as string;
-        const item = items.find((i) => i.id === itemId);
-        const existing = item ? getMediaUrls(item.photo_url) : [];
-        const allPhotos = [...existing, base64];
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result as string;
+      const item = items.find((i) => i.id === itemId);
+      const existing = item ? getMediaUrls(item.photo_url) : [];
+      const allPhotos = [...existing, base64];
+      try {
         const res = await fetch(`/api/buckets/${itemId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -252,11 +257,11 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         if (!res.ok) throw new Error("Failed to upload");
         toast.success("Photo uploaded!");
         fetchItems();
-      };
-      reader.readAsDataURL(file);
-    } catch {
-      toast.error("Failed to upload photo");
-    }
+      } catch {
+        toast.error("Failed to upload photo");
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleRemovePhoto = async (itemId: string) => {
@@ -282,7 +287,9 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     try {
       const parsed = JSON.parse(photoUrl);
       if (Array.isArray(parsed)) return parsed;
-    } catch {}
+    } catch {
+      /* not JSON */
+    }
     return [photoUrl];
   };
 
@@ -495,9 +502,15 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                   {deletingList === list.id && (
                     <div
                       className="mb-3 p-3 rounded-xl"
-                      style={{ border: "1px solid rgba(114,47,55,0.2)", backgroundColor: "rgba(114,47,55,0.05)" }}
+                      style={{
+                        border: "1px solid rgba(114,47,55,0.2)",
+                        backgroundColor: "rgba(114,47,55,0.05)",
+                      }}
                     >
-                      <p className="text-xs mb-2" style={{ color: "#722f37" }}>
+                      <p
+                        className="text-xs mb-2"
+                        style={{ color: "#722f37" }}
+                      >
                         Type <strong>i love you</strong> to confirm deletion
                       </p>
                       <form
@@ -619,9 +632,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
           />
 
           {/* Modal */}
-          <div
-            className="relative bg-white rounded-3xl shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden animate-fade-in"
-          >
+          <div className="relative bg-white rounded-3xl shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden animate-fade-in">
             {/* Modal Header */}
             <div
               className="px-6 py-4 flex items-center justify-between border-b"
@@ -696,7 +707,9 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                 <p className="text-xs text-rose-gold/40 text-center py-4">
                   Loading...
                 </p>
-              ) : getItemsByCategory(viewingList.name).filter(i => i.status !== "Completed").length === 0 ? (
+              ) : getItemsByCategory(viewingList.name).filter(
+                  (i) => i.status !== "Completed"
+                ).length === 0 ? (
                 <div className="text-center py-8">
                   <p className="text-sm text-rose-gold/40 italic">
                     No active goals. Add one above!
@@ -708,130 +721,137 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                     {getItemsByCategory(viewingList.name)
                       .filter((i) => i.status !== "Completed")
                       .map((item) => (
-                          <li
-                            key={item.id}
-                            className="p-3 rounded-xl bg-white hover:bg-blush/20 transition-all duration-300"
-                            style={{
-                              border: "1px solid rgba(232,160,160,0.15)",
-                            }}
-                          >
-                            <div className="flex items-center gap-3">
-                              {/* Checkbox */}
-                              <button
-                                onClick={() => handleToggleComplete(item)}
-                                className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all duration-300"
-                                style={{
-                                  borderColor: "rgba(232,160,160,0.4)",
-                                }}
-                                title="Mark as done"
-                              />
+                        <li
+                          key={item.id}
+                          className="p-3 rounded-xl bg-white hover:bg-blush/20 transition-all duration-300"
+                          style={{
+                            border: "1px solid rgba(232,160,160,0.15)",
+                          }}
+                        >
+                          <div className="flex items-center gap-3">
+                            {/* Checkbox */}
+                            <button
+                              onClick={() => handleToggleComplete(item)}
+                              className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all duration-300"
+                              style={{
+                                borderColor: "rgba(232,160,160,0.4)",
+                              }}
+                              title="Mark as done"
+                            />
 
-                              {/* Title or Edit */}
-                              <div className="flex-1 min-w-0">
-                                {editingItem === item.id ? (
-                                  <form
-                                    onSubmit={(e) => {
-                                      e.preventDefault();
-                                      handleEditItem(item.id);
-                                    }}
-                                    className="flex gap-2"
-                                  >
-                                    <input
-                                      type="text"
-                                      value={editTitle}
-                                      onChange={(e) =>
-                                        setEditTitle(e.target.value)
-                                      }
-                                      className="input-field flex-1 text-sm py-1"
-                                      autoFocus
-                                    />
-                                    <button
-                                      type="submit"
-                                      className="btn-primary text-xs px-3 py-1"
-                                    >
-                                      Save
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setEditingItem(null);
-                                        setEditTitle("");
-                                      }}
-                                      className="text-xs px-2 py-1 rounded-pill border border-rose/20 text-rose-gold hover:bg-blush transition-all duration-300"
-                                    >
-                                      Cancel
-                                    </button>
-                                  </form>
-                                ) : (
-                                  <span className="text-sm block truncate text-wine">
-                                    {item.title}
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* Actions */}
-                              {editingItem !== item.id && (
-                                <div className="flex items-center gap-1 flex-shrink-0">
+                            {/* Title or Edit */}
+                            <div className="flex-1 min-w-0">
+                              {editingItem === item.id ? (
+                                <form
+                                  onSubmit={(e) => {
+                                    e.preventDefault();
+                                    handleEditItem(item.id);
+                                  }}
+                                  className="flex gap-2"
+                                >
+                                  <input
+                                    type="text"
+                                    value={editTitle}
+                                    onChange={(e) =>
+                                      setEditTitle(e.target.value)
+                                    }
+                                    className="input-field flex-1 text-sm py-1"
+                                    autoFocus
+                                  />
                                   <button
+                                    type="submit"
+                                    className="btn-primary text-xs px-3 py-1"
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    type="button"
                                     onClick={() => {
-                                      setEditingItem(item.id);
-                                      setEditTitle(item.title);
+                                      setEditingItem(null);
+                                      setEditTitle("");
                                     }}
-                                    className="p-1.5 rounded-lg hover:bg-blush/50 transition-all duration-300"
-                                    style={{ color: "#b76e79" }}
-                                    title="Edit"
+                                    className="text-xs px-2 py-1 rounded-pill border border-rose/20 text-rose-gold hover:bg-blush transition-all duration-300"
                                   >
-                                    <svg
-                                      className="w-4 h-4"
-                                      fill="none"
-                                      viewBox="0 0 24 24"
-                                      strokeWidth={1.5}
-                                      stroke="currentColor"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z"
-                                      />
-                                    </svg>
+                                    Cancel
                                   </button>
-                                  <button
-                                    onClick={() => handleDeleteItem(item.id)}
-                                    className="p-1.5 rounded-lg hover:bg-red-50 transition-all duration-300"
-                                    style={{ color: "#722f37" }}
-                                    title="Delete"
-                                  >
-                                    <svg
-                                      className="w-4 h-4"
-                                      fill="none"
-                                      viewBox="0 0 24 24"
-                                      strokeWidth={1.5}
-                                      stroke="currentColor"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
-                                      />
-                                    </svg>
-                                  </button>
-                                </div>
+                                </form>
+                              ) : (
+                                <span className="text-sm block truncate text-wine">
+                                  {item.title}
+                                </span>
                               )}
                             </div>
-                          </li>
-                        ))}
-                    </ul>
+
+                            {/* Actions */}
+                            {editingItem !== item.id && (
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <button
+                                  onClick={() => {
+                                    setEditingItem(item.id);
+                                    setEditTitle(item.title);
+                                  }}
+                                  className="p-1.5 rounded-lg hover:bg-blush/50 transition-all duration-300"
+                                  style={{ color: "#b76e79" }}
+                                  title="Edit"
+                                >
+                                  <svg
+                                    className="w-4 h-4"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    strokeWidth={1.5}
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z"
+                                    />
+                                  </svg>
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteItem(item.id)}
+                                  className="p-1.5 rounded-lg hover:bg-red-50 transition-all duration-300"
+                                  style={{ color: "#722f37" }}
+                                  title="Delete"
+                                >
+                                  <svg
+                                    className="w-4 h-4"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    strokeWidth={1.5}
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
+                                    />
+                                  </svg>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                  </ul>
                 </div>
               )}
             </div>
 
             {/* Modal Footer */}
-            {getItemsByCategory(viewingList.name).filter(i => i.status !== "Completed").length > 0 && (
+            {getItemsByCategory(viewingList.name).filter(
+              (i) => i.status !== "Completed"
+            ).length > 0 && (
               <div
                 className="px-6 py-3 border-t border-rose/10 text-center text-xs font-semibold"
                 style={{ color: "#b76e79" }}
               >
-                {getItemsByCategory(viewingList.name).filter(i => i.status !== "Completed").length} active goals
+                {
+                  getItemsByCategory(viewingList.name).filter(
+                    (i) => i.status !== "Completed"
+                  ).length
+                }{" "}
+                active goals
               </div>
             )}
           </div>
@@ -859,7 +879,12 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                   {viewingCompleted.name} — Completed
                 </h2>
                 <p className="text-sm text-white/70 mt-0.5">
-                  {getItemsByCategory(viewingCompleted.name).filter(i => i.status === "Completed").length} goals achieved
+                  {
+                    getItemsByCategory(viewingCompleted.name).filter(
+                      (i) => i.status === "Completed"
+                    ).length
+                  }{" "}
+                  goals achieved
                 </p>
               </div>
               <button
@@ -884,7 +909,9 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
             {/* Completed Items List */}
             <div className="flex-1 overflow-y-auto px-6 py-4">
-              {getItemsByCategory(viewingCompleted.name).filter(i => i.status === "Completed").length === 0 ? (
+              {getItemsByCategory(viewingCompleted.name).filter(
+                (i) => i.status === "Completed"
+              ).length === 0 ? (
                 <div className="text-center py-10">
                   <p className="text-sm text-rose-gold/40 italic">
                     No completed goals yet.
@@ -931,71 +958,82 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
                             {/* Actions */}
                             <div className="flex items-center gap-1 flex-shrink-0">
-                            {/* View gallery */}
-                            <button
-                              onClick={() => setViewingGalleryItem(item)}
-                              className="p-1.5 rounded-lg hover:bg-blush/50 transition-all duration-300"
-                              style={{ color: "#b76e79" }}
-                              title="View details"
-                            >
-                              <svg
-                                className="w-4 h-4"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                strokeWidth={1.5}
-                                stroke="currentColor"
+                              {/* View gallery */}
+                              <button
+                                onClick={() => setViewingGalleryItem(item)}
+                                className="p-1.5 rounded-lg hover:bg-blush/50 transition-all duration-300"
+                                style={{ color: "#b76e79" }}
+                                title="View details"
                               >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"
-                                />
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                                />
-                              </svg>
-                            </button>
-                            {/* Upload photo */}
-                            <button
-                              onClick={() => {
-                                setUploadingItemId(item.id);
-                                fileInputRef.current?.click();
-                              }}
-                              className="p-1.5 rounded-lg hover:bg-blush/50 transition-all duration-300"
-                              style={{ color: "#b76e79" }}
-                              title={getMediaUrls(item.photo_url).length > 0 ? "Change photo" : "Upload photo"}
-                            >
-                              <svg
-                                className="w-4 h-4"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                strokeWidth={1.5}
-                                stroke="currentColor"
+                                <svg
+                                  className="w-4 h-4"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  strokeWidth={1.5}
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"
+                                  />
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                  />
+                                </svg>
+                              </button>
+                              {/* Upload photo */}
+                              <button
+                                onClick={() => {
+                                  setUploadingItemId(item.id);
+                                  fileInputRef.current?.click();
+                                }}
+                                className="p-1.5 rounded-lg hover:bg-blush/50 transition-all duration-300"
+                                style={{ color: "#b76e79" }}
+                                title={
+                                  getMediaUrls(item.photo_url).length > 0
+                                    ? "Change photo"
+                                    : "Upload photo"
+                                }
                               >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"
-                                />
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"
-                                />
-                              </svg>
-                            </button>
+                                <svg
+                                  className="w-4 h-4"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  strokeWidth={1.5}
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"
+                                  />
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"
+                                  />
+                                </svg>
+                              </button>
+                            </div>
                           </div>
-                        </div>
 
                           {/* Date and Description */}
                           {(item.completed_at || item.description) && (
                             <div className="ml-8 mt-1.5 space-y-1">
                               {item.completed_at && (
-                                <p className="text-xs" style={{ color: "rgba(183,110,121,0.6)" }}>
+                                <p
+                                  className="text-xs"
+                                  style={{
+                                    color: "rgba(183,110,121,0.6)",
+                                  }}
+                                >
                                   Completed on{" "}
-                                  {new Date(item.completed_at).toLocaleDateString("en-US", {
+                                  {new Date(
+                                    item.completed_at
+                                  ).toLocaleDateString("en-US", {
                                     year: "numeric",
                                     month: "long",
                                     day: "numeric",
@@ -1003,7 +1041,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                                 </p>
                               )}
                               {item.description && (
-                                <p className="text-xs" style={{ color: "#722f37" }}>
+                                <p
+                                  className="text-xs"
+                                  style={{ color: "#722f37" }}
+                                >
                                   {item.description}
                                 </p>
                               )}
@@ -1014,7 +1055,6 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                     ))}
                 </ul>
               )}
-
             </div>
           </div>
         </div>
@@ -1040,9 +1080,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
               className="px-6 py-4 border-b"
               style={{ backgroundColor: "#b76e79" }}
             >
-              <h2 className="text-lg font-bold text-white">
-                Mark as Done
-              </h2>
+              <h2 className="text-lg font-bold text-white">Mark as Done</h2>
               <p className="text-xs text-white/70 mt-0.5">
                 {completingItem.title}
               </p>
@@ -1052,7 +1090,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             <div className="px-6 py-5 space-y-4">
               {/* Date */}
               <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: "#b76e79" }}>
+                <label
+                  className="block text-xs font-semibold mb-1.5"
+                  style={{ color: "#b76e79" }}
+                >
                   Date Completed
                 </label>
                 <input
@@ -1070,7 +1111,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
               {/* Description */}
               <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: "#b76e79" }}>
+                <label
+                  className="block text-xs font-semibold mb-1.5"
+                  style={{ color: "#b76e79" }}
+                >
                   Description / Notes
                 </label>
                 <textarea
@@ -1088,7 +1132,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
               {/* Photos / Videos Upload */}
               <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: "#b76e79" }}>
+                <label
+                  className="block text-xs font-semibold mb-1.5"
+                  style={{ color: "#b76e79" }}
+                >
                   Photos / Videos (optional)
                 </label>
                 {completePhotos.length > 0 && (
@@ -1099,18 +1146,26 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                           <video
                             src={photo}
                             className="w-full h-24 object-cover rounded-lg"
-                            style={{ border: "1px solid rgba(183,110,121,0.2)" }}
+                            style={{
+                              border: "1px solid rgba(183,110,121,0.2)",
+                            }}
                           />
                         ) : (
                           <img
                             src={photo}
                             alt={`Upload ${idx + 1}`}
                             className="w-full h-24 object-cover rounded-lg"
-                            style={{ border: "1px solid rgba(183,110,121,0.2)" }}
+                            style={{
+                              border: "1px solid rgba(183,110,121,0.2)",
+                            }}
                           />
                         )}
                         <button
-                          onClick={() => setCompletePhotos((prev) => prev.filter((_, i) => i !== idx))}
+                          onClick={() =>
+                            setCompletePhotos((prev) =>
+                              prev.filter((_, i) => i !== idx)
+                            )
+                          }
                           className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
                         >
                           ✕
@@ -1145,7 +1200,9 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                       d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"
                     />
                   </svg>
-                  {completePhotos.length > 0 ? "Add more photos or videos" : "Upload a photo or video"}
+                  {completePhotos.length > 0
+                    ? "Add more photos or videos"
+                    : "Upload a photo or video"}
                 </button>
               </div>
             </div>
@@ -1198,7 +1255,9 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                 {viewingGalleryItem.completed_at && (
                   <p className="text-sm text-white/70 mt-0.5">
                     Completed on{" "}
-                    {new Date(viewingGalleryItem.completed_at).toLocaleDateString("en-US", {
+                    {new Date(
+                      viewingGalleryItem.completed_at
+                    ).toLocaleDateString("en-US", {
                       year: "numeric",
                       month: "long",
                       day: "numeric",
@@ -1231,10 +1290,16 @@ export default function Dashboard({ onLogout }: DashboardProps) {
               {/* Description */}
               {viewingGalleryItem.description && (
                 <div>
-                  <p className="text-xs font-semibold mb-1.5" style={{ color: "#b76e79" }}>
+                  <p
+                    className="text-xs font-semibold mb-1.5"
+                    style={{ color: "#b76e79" }}
+                  >
                     Notes
                   </p>
-                  <p className="text-sm leading-relaxed" style={{ color: "#722f37" }}>
+                  <p
+                    className="text-sm leading-relaxed"
+                    style={{ color: "#722f37" }}
+                  >
                     {viewingGalleryItem.description}
                   </p>
                 </div>
@@ -1242,9 +1307,15 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
               {/* Media Gallery */}
               {(() => {
-                const mediaUrls = getMediaUrls(viewingGalleryItem.photo_url);
-                const images = mediaUrls.filter((url) => !url.startsWith("data:video/"));
-                const videos = mediaUrls.filter((url) => url.startsWith("data:video/"));
+                const mediaUrls = getMediaUrls(
+                  viewingGalleryItem.photo_url
+                );
+                const images = mediaUrls.filter(
+                  (url) => !url.startsWith("data:video/")
+                );
+                const videos = mediaUrls.filter((url) =>
+                  url.startsWith("data:video/")
+                );
 
                 if (mediaUrls.length === 0) return null;
 
@@ -1253,7 +1324,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                     {/* Images */}
                     {images.length > 0 && (
                       <div>
-                        <p className="text-xs font-semibold mb-2" style={{ color: "#b76e79" }}>
+                        <p
+                          className="text-xs font-semibold mb-2"
+                          style={{ color: "#b76e79" }}
+                        >
                           Images ({images.length})
                         </p>
                         <div className="grid grid-cols-2 gap-3">
@@ -1261,7 +1335,9 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                             <div
                               key={idx}
                               className="rounded-xl overflow-hidden cursor-pointer hover:opacity-80 transition-all duration-300"
-                              style={{ border: "1px solid rgba(232,160,160,0.2)" }}
+                              style={{
+                                border: "1px solid rgba(232,160,160,0.2)",
+                              }}
                               onClick={() => setViewingImage(url)}
                             >
                               <img
@@ -1278,7 +1354,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                     {/* Videos */}
                     {videos.length > 0 && (
                       <div>
-                        <p className="text-xs font-semibold mb-2" style={{ color: "#b76e79" }}>
+                        <p
+                          className="text-xs font-semibold mb-2"
+                          style={{ color: "#b76e79" }}
+                        >
                           Videos ({videos.length})
                         </p>
                         <div className="grid grid-cols-2 gap-3">
@@ -1286,7 +1365,9 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                             <div
                               key={idx}
                               className="rounded-xl overflow-hidden cursor-pointer hover:opacity-80 transition-all duration-300"
-                              style={{ border: "1px solid rgba(232,160,160,0.2)" }}
+                              style={{
+                                border: "1px solid rgba(232,160,160,0.2)",
+                              }}
                               onClick={() => setViewingImage(url)}
                             >
                               <div className="relative">
@@ -1314,13 +1395,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
               })()}
 
               {/* Empty state */}
-              {!viewingGalleryItem.description && getMediaUrls(viewingGalleryItem.photo_url).length === 0 && (
-                <div className="text-center py-8">
-                  <p className="text-sm italic" style={{ color: "rgba(183,110,121,0.4)" }}>
-                    No details or media for this goal yet.
-                  </p>
-                </div>
-              )}
+              {!viewingGalleryItem.description &&
+                getMediaUrls(viewingGalleryItem.photo_url).length === 0 && (
+                  <div className="text-center py-8">
+                    <p
+                      className="text-sm italic"
+                      style={{ color: "rgba(183,110,121,0.4)" }}
+                    >
+                      No details or media for this goal yet.
+                    </p>
+                  </div>
+                )}
             </div>
           </div>
         </div>
@@ -1342,7 +1427,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             const newBase64s: string[] = [];
 
             fileArray.forEach((file) => {
-              if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
+              if (
+                !file.type.startsWith("image/") &&
+                !file.type.startsWith("video/")
+              ) {
                 toast.error(`${file.name} is not an image or video`);
                 processed++;
                 return;
@@ -1358,7 +1446,9 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                 processed++;
                 if (processed === fileArray.length && newBase64s.length > 0) {
                   const item = items.find((i) => i.id === itemId);
-                  const existing = item ? getMediaUrls(item.photo_url) : [];
+                  const existing = item
+                    ? getMediaUrls(item.photo_url)
+                    : [];
                   const allPhotos = [...existing, ...newBase64s];
                   try {
                     const res = await fetch(`/api/buckets/${itemId}`, {
@@ -1367,7 +1457,9 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                       body: JSON.stringify({ photo_url: JSON.stringify(allPhotos) }),
                     });
                     if (!res.ok) throw new Error("Failed to upload");
-                    toast.success(`${newBase64s.length} file${newBase64s.length > 1 ? "s" : ""} uploaded!`);
+                    toast.success(
+                      `${newBase64s.length} file${newBase64s.length > 1 ? "s" : ""} uploaded!`
+                    );
                     fetchItems();
                   } catch {
                     toast.error("Failed to upload photos");
@@ -1399,7 +1491,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
               }
               const reader = new FileReader();
               reader.onload = () => {
-                setCompletePhotos((prev) => [...prev, reader.result as string]);
+                setCompletePhotos((prev) => [
+                  ...prev,
+                  reader.result as string,
+                ]);
               };
               reader.readAsDataURL(file);
             });

@@ -48,14 +48,13 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    const { data: maxOrder } = await supabase
+    const { data: maxOrderRows } = await supabase
       .from("buckets")
       .select("sort_order")
       .order("sort_order", { ascending: false })
-      .limit(1)
-      .single();
+      .limit(1);
 
-    const newOrder = maxOrder ? maxOrder.sort_order + 1 : 0;
+    const newOrder = maxOrderRows && maxOrderRows.length > 0 ? maxOrderRows[0].sort_order + 1 : 0;
 
     const { data, error } = await supabase
       .from("buckets")
