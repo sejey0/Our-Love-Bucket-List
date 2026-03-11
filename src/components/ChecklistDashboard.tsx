@@ -31,7 +31,87 @@ export default function ChecklistDashboard() {
   const [completeDesc, setCompleteDesc] = useState("");
   const [completePhotos, setCompletePhotos] = useState<string[]>([]);
   const [completeDate, setCompleteDate] = useState("");
+  const [viewingDetailItem, setViewingDetailItem] =
+    useState<ChecklistItem | null>(null);
+  const [viewingImage, setViewingImage] = useState<string | null>(null);
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [editNotesValue, setEditNotesValue] = useState("");
+  const [deletingImageIdx, setDeletingImageIdx] = useState<number | null>(null);
+  const [deleteImageConfirm, setDeleteImageConfirm] = useState("");
+  const [undoingItem, setUndoingItem] = useState<ChecklistItem | null>(null);
+  const [undoConfirm, setUndoConfirm] = useState("");
   const completeFileRef = useRef<HTMLInputElement>(null);
+
+  const handleUpdateNotes = async (itemId: string, newDescription: string) => {
+    const original = checklistItems.find((i) => i.id === itemId);
+    const desc = newDescription.trim();
+    setChecklistItems((prev) =>
+      prev.map((i) =>
+        i.id === itemId ? { ...i, description: desc || "" } : i,
+      ),
+    );
+    if (viewingDetailItem && viewingDetailItem.id === itemId) {
+      setViewingDetailItem({
+        ...viewingDetailItem,
+        description: desc || "",
+      });
+    }
+    setEditingNotes(false);
+    setEditNotesValue("");
+    incrementEditCount(itemId, "notes");
+    toast.success("Notes updated!");
+    try {
+      const res = await fetch(`/api/checklist-items/${itemId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description: desc || "" }),
+      });
+      if (!res.ok) throw new Error("Failed to update");
+    } catch {
+      if (original)
+        setChecklistItems((prev) =>
+          prev.map((i) => (i.id === itemId ? original : i)),
+        );
+      toast.error("Failed to update notes");
+    }
+  };
+
+  const handleDeleteSingleImage = async (itemId: string, imageIdx: number) => {
+    if (deleteImageConfirm.toLowerCase() !== "i love you") {
+      toast.error("Type 'i love you' to confirm deletion");
+      return;
+    }
+    const item = checklistItems.find((i) => i.id === itemId);
+    if (!item) return;
+    const mediaUrls = getMediaUrls(item.photo_url);
+    const newUrls = mediaUrls.filter((_, idx) => idx !== imageIdx);
+    const newPhotoUrl = newUrls.length > 0 ? JSON.stringify(newUrls) : null;
+    const originalPhotoUrl = item.photo_url;
+    setChecklistItems((prev) =>
+      prev.map((i) => (i.id === itemId ? { ...i, photo_url: newPhotoUrl } : i)),
+    );
+    if (viewingDetailItem && viewingDetailItem.id === itemId) {
+      setViewingDetailItem({ ...viewingDetailItem, photo_url: newPhotoUrl });
+    }
+    setDeletingImageIdx(null);
+    setDeleteImageConfirm("");
+    toast.success("Image deleted!");
+    try {
+      const res = await fetch(`/api/checklist-items/${itemId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ photo_url: newPhotoUrl }),
+      });
+      if (!res.ok) throw new Error("Failed to delete image");
+    } catch {
+      setChecklistItems((prev) =>
+        prev.map((i) =>
+          i.id === itemId ? { ...i, photo_url: originalPhotoUrl } : i,
+        ),
+      );
+      toast.error("Failed to delete image");
+    }
+  };
 
   const fetchChecklists = useCallback(async () => {
     try {
@@ -231,38 +311,51 @@ export default function ChecklistDashboard() {
       setCompletePhotos([]);
       setCompleteDate(new Date().toISOString().split("T")[0]);
     } else {
-      // Uncompleting - toggle directly
+      // Show undo confirmation
+      setUndoingItem(item);
+      setUndoConfirm("");
+    }
+  };
+
+  const handleConfirmUndo = async () => {
+    if (!undoingItem) return;
+    if (undoConfirm.toLowerCase() !== "i love you") {
+      toast.error("Type 'i love you' to confirm");
+      return;
+    }
+    const item = undoingItem;
+    setUndoingItem(null);
+    setUndoConfirm("");
+    setChecklistItems((prev) =>
+      prev.map((i) =>
+        i.id === item.id
+          ? {
+              ...i,
+              is_completed: false,
+              completed_at: null,
+              description: "",
+              photo_url: null,
+            }
+          : i,
+      ),
+    );
+    try {
+      const res = await fetch(`/api/checklist-items/${item.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          is_completed: false,
+          completed_at: null,
+          description: "",
+          photo_url: null,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to update");
+    } catch {
       setChecklistItems((prev) =>
-        prev.map((i) =>
-          i.id === item.id
-            ? {
-                ...i,
-                is_completed: false,
-                completed_at: null,
-                description: "",
-                photo_url: null,
-              }
-            : i,
-        ),
+        prev.map((i) => (i.id === item.id ? item : i)),
       );
-      try {
-        const res = await fetch(`/api/checklist-items/${item.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            is_completed: false,
-            completed_at: null,
-            description: "",
-            photo_url: null,
-          }),
-        });
-        if (!res.ok) throw new Error("Failed to update");
-      } catch {
-        setChecklistItems((prev) =>
-          prev.map((i) => (i.id === item.id ? item : i)),
-        );
-        toast.error("Failed to update");
-      }
+      toast.error("Failed to update");
     }
   };
 
@@ -361,6 +454,17 @@ export default function ChecklistDashboard() {
 
   const getItemsByChecklist = (checklistId: string) =>
     checklistItems.filter((item) => item.checklist_id === checklistId);
+
+  const getMediaUrls = (photoUrl: string | null): string[] => {
+    if (!photoUrl) return [];
+    try {
+      const parsed = JSON.parse(photoUrl);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+      /* not JSON */
+    }
+    return [photoUrl];
+  };
 
   if (isLoading) {
     return (
@@ -1132,27 +1236,56 @@ export default function ChecklistDashboard() {
                             {item.title}
                           </span>
 
-                          {/* Undo button */}
-                          <button
-                            onClick={() => handleToggleItem(item)}
-                            className="p-1.5 rounded-lg hover:bg-blush/50 transition-colors duration-150"
-                            style={{ color: "#b76e79" }}
-                            title="Mark as undone"
-                          >
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              strokeWidth={1.5}
-                              stroke="currentColor"
+                          {/* Actions */}
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            {/* View details */}
+                            <button
+                              onClick={() => setViewingDetailItem(item)}
+                              className="p-1.5 rounded-lg hover:bg-blush/50 transition-colors duration-150"
+                              style={{ color: "#b76e79" }}
+                              title="View details"
                             >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"
-                              />
-                            </svg>
-                          </button>
+                              <svg
+                                className="w-4 h-4"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                strokeWidth={1.5}
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"
+                                />
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                />
+                              </svg>
+                            </button>
+                            {/* Undo button */}
+                            <button
+                              onClick={() => handleToggleItem(item)}
+                              className="p-1.5 rounded-lg hover:bg-blush/50 transition-colors duration-150"
+                              style={{ color: "#b76e79" }}
+                              title="Mark as undone"
+                            >
+                              <svg
+                                className="w-4 h-4"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                strokeWidth={1.5}
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"
+                                />
+                              </svg>
+                            </button>
+                          </div>
                         </div>
 
                         {/* Date and Description */}
@@ -1384,6 +1517,391 @@ export default function ChecklistDashboard() {
           e.target.value = "";
         }}
       />
+
+      {/* Detail View Modal */}
+      {viewingDetailItem && (
+        <div className="fixed inset-0 z-[55] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => {
+              setViewingDetailItem(null);
+              setEditingNotes(false);
+              setEditNotesValue("");
+              setDeletingImageIdx(null);
+              setDeleteImageConfirm("");
+            }}
+          />
+
+          <div className="relative bg-white rounded-3xl shadow-xl w-full max-w-xl max-h-[85vh] flex flex-col overflow-hidden">
+            {/* Header */}
+            <div
+              className="px-6 py-5 flex items-center justify-between border-b"
+              style={{ backgroundColor: "#b76e79" }}
+            >
+              <div className="flex-1 min-w-0 mr-3">
+                <h2 className="text-lg font-bold text-white truncate">
+                  {viewingDetailItem.title}
+                </h2>
+                {viewingDetailItem.completed_at && (
+                  <p className="text-xs text-white/70 mt-0.5">
+                    Completed on{" "}
+                    {new Date(
+                      viewingDetailItem.completed_at,
+                    ).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  setViewingDetailItem(null);
+                  setEditingNotes(false);
+                  setEditNotesValue("");
+                  setDeletingImageIdx(null);
+                  setDeleteImageConfirm("");
+                }}
+                className="text-white/70 hover:text-white transition-colors"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2}
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+              {/* Notes */}
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <h3
+                    className="text-xs font-semibold"
+                    style={{ color: "#b76e79" }}
+                  >
+                    Notes
+                  </h3>
+                  {!editingNotes && canEdit(viewingDetailItem.id, "notes") && (
+                    <button
+                      onClick={() => {
+                        setEditingNotes(true);
+                        setEditNotesValue(viewingDetailItem.description || "");
+                      }}
+                      className="p-0.5 rounded hover:bg-blush/30 transition-colors"
+                      style={{ color: "#b76e79" }}
+                      title="Edit notes"
+                    >
+                      <svg
+                        className="w-3.5 h-3.5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={2}
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"
+                        />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                {editingNotes ? (
+                  <div className="space-y-2">
+                    <textarea
+                      value={editNotesValue}
+                      onChange={(e) => setEditNotesValue(e.target.value)}
+                      className="input-field text-sm w-full"
+                      rows={3}
+                      placeholder="Add notes..."
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() =>
+                          handleUpdateNotes(
+                            viewingDetailItem.id,
+                            editNotesValue,
+                          )
+                        }
+                        className="text-xs px-3 py-1.5 rounded-pill text-white"
+                        style={{ backgroundColor: "#b76e79" }}
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingNotes(false);
+                          setEditNotesValue("");
+                        }}
+                        className="text-xs px-3 py-1.5 rounded-pill border border-rose/20 hover:bg-blush"
+                        style={{ color: "#b76e79" }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : viewingDetailItem.description ? (
+                  <p className="text-sm" style={{ color: "#722f37" }}>
+                    {viewingDetailItem.description}
+                  </p>
+                ) : canEdit(viewingDetailItem.id, "notes") ? (
+                  <p
+                    className="text-sm text-rose-gold/30 italic cursor-pointer hover:text-rose-gold/50 transition-colors"
+                    onClick={() => {
+                      setEditingNotes(true);
+                      setEditNotesValue("");
+                    }}
+                  >
+                    No notes yet. Click to add.
+                  </p>
+                ) : (
+                  <p className="text-sm text-rose-gold/30 italic">
+                    No notes added.
+                  </p>
+                )}
+              </div>
+
+              {/* Photos / Videos */}
+              <div>
+                <h3
+                  className="text-xs font-semibold mb-2"
+                  style={{ color: "#b76e79" }}
+                >
+                  Photos / Videos
+                </h3>
+                {getMediaUrls(viewingDetailItem.photo_url).length > 0 ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    {getMediaUrls(viewingDetailItem.photo_url).map(
+                      (url, idx) => {
+                        const actualIdx = getMediaUrls(
+                          viewingDetailItem.photo_url,
+                        ).indexOf(url);
+                        return (
+                          <div
+                            key={idx}
+                            className="relative group rounded-xl overflow-hidden"
+                            style={{
+                              border: "1px solid rgba(183,110,121,0.15)",
+                            }}
+                          >
+                            <div
+                              className="cursor-pointer hover:opacity-80 transition-colors duration-150"
+                              onClick={() => setViewingImage(url)}
+                            >
+                              {url.startsWith("data:video/") ? (
+                                <div className="relative">
+                                  <video
+                                    src={url}
+                                    className="w-full h-32 object-cover"
+                                  />
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                                    <svg
+                                      className="w-8 h-8 text-white"
+                                      fill="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path d="M8 5v14l11-7z" />
+                                    </svg>
+                                  </div>
+                                </div>
+                              ) : (
+                                <img
+                                  src={url}
+                                  alt={`Photo ${idx + 1}`}
+                                  className="w-full h-32 object-cover"
+                                />
+                              )}
+                            </div>
+                            {/* Delete Button */}
+                            <button
+                              onClick={() => {
+                                setDeletingImageIdx(actualIdx);
+                                setDeleteImageConfirm("");
+                              }}
+                              className="absolute top-1.5 right-1.5 p-1 rounded-full bg-white/80 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all duration-150"
+                              style={{ color: "#722f37" }}
+                              title="Delete"
+                            >
+                              <svg
+                                className="w-3.5 h-3.5"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                strokeWidth={2}
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M6 18L18 6M6 6l12 12"
+                                />
+                              </svg>
+                            </button>
+                            {/* Delete Confirmation */}
+                            {deletingImageIdx === actualIdx && (
+                              <div className="absolute inset-0 bg-white/95 rounded-xl flex flex-col items-center justify-center p-2 z-10">
+                                <p
+                                  className="text-xs mb-1.5 text-center"
+                                  style={{ color: "#722f37" }}
+                                >
+                                  Type <strong>i love you</strong>
+                                </p>
+                                <input
+                                  type="text"
+                                  value={deleteImageConfirm}
+                                  onChange={(e) =>
+                                    setDeleteImageConfirm(e.target.value)
+                                  }
+                                  placeholder="i love you"
+                                  className="input-field text-xs py-1 px-2 w-full mb-1.5"
+                                  autoFocus
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter")
+                                      handleDeleteSingleImage(
+                                        viewingDetailItem.id,
+                                        actualIdx,
+                                      );
+                                  }}
+                                />
+                                <div className="flex gap-1.5">
+                                  <button
+                                    onClick={() =>
+                                      handleDeleteSingleImage(
+                                        viewingDetailItem.id,
+                                        actualIdx,
+                                      )
+                                    }
+                                    className="text-xs px-2.5 py-1 rounded-pill text-white"
+                                    style={{ backgroundColor: "#722f37" }}
+                                  >
+                                    Delete
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setDeletingImageIdx(null);
+                                      setDeleteImageConfirm("");
+                                    }}
+                                    className="text-xs px-2.5 py-1 rounded-pill border border-rose/20 hover:bg-blush"
+                                    style={{ color: "#b76e79" }}
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      },
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-rose-gold/30 italic">
+                    No photos or videos added.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Undo Confirmation Modal */}
+      {undoingItem && (
+        <div className="fixed inset-0 z-[55] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => {
+              setUndoingItem(null);
+              setUndoConfirm("");
+            }}
+          />
+          <div className="relative bg-white rounded-3xl shadow-xl w-full max-w-sm p-6 text-center">
+            <h3 className="text-lg font-bold mb-1" style={{ color: "#722f37" }}>
+              Mark as Undone?
+            </h3>
+            <p className="text-sm mb-1" style={{ color: "#b76e79" }}>
+              <strong>{undoingItem.title}</strong>
+            </p>
+            <p
+              className="text-xs mb-4"
+              style={{ color: "rgba(183,110,121,0.6)" }}
+            >
+              This will clear the completion date, notes, and photos.
+            </p>
+            <p className="text-xs mb-2" style={{ color: "#722f37" }}>
+              Type <strong>i love you</strong> to confirm
+            </p>
+            <input
+              type="text"
+              value={undoConfirm}
+              onChange={(e) => setUndoConfirm(e.target.value)}
+              placeholder="i love you"
+              className="input-field text-sm w-full mb-4"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleConfirmUndo();
+              }}
+            />
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={handleConfirmUndo}
+                className="text-sm px-5 py-2 rounded-pill text-white"
+                style={{ backgroundColor: "#722f37" }}
+              >
+                Undo
+              </button>
+              <button
+                onClick={() => {
+                  setUndoingItem(null);
+                  setUndoConfirm("");
+                }}
+                className="text-sm px-5 py-2 rounded-pill border border-rose/20 hover:bg-blush"
+                style={{ color: "#b76e79" }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Media Viewer Modal */}
+      {viewingImage && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70"
+          onClick={() => setViewingImage(null)}
+        >
+          <div className="relative max-w-2xl max-h-[85vh]">
+            {viewingImage.startsWith("data:video/") ? (
+              <video
+                src={viewingImage}
+                controls
+                autoPlay
+                className="max-w-full max-h-[85vh] rounded-2xl"
+                onClick={(e) => e.stopPropagation()}
+              />
+            ) : (
+              <img
+                src={viewingImage}
+                alt="Full view"
+                className="max-w-full max-h-[85vh] rounded-2xl object-contain"
+              />
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 }
