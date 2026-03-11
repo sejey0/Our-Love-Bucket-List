@@ -58,6 +58,27 @@ export const CATEGORY_COLORS: Record<string, string> = {
   Other: "bg-gray-50 text-gray-600 border border-gray-200",
 };
 
+// Checklist types
+export interface ChecklistGroup {
+  id: string;
+  name: string;
+  description: string;
+  created_at: string;
+  updated_at: string;
+  user_id: string;
+}
+
+export interface ChecklistItem {
+  id: string;
+  title: string;
+  checklist_id: string;
+  is_completed: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  user_id: string;
+}
+
 export const PRIORITY_COLORS: Record<string, string> = {
   High: "bg-red-50 text-red-600 border border-red-200",
   Medium: "bg-amber-50 text-amber-600 border border-amber-200",

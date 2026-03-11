@@ -52,6 +52,57 @@ CREATE TRIGGER update_buckets_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
+-- Create the checklists table (groups of checklist items)
+CREATE TABLE IF NOT EXISTS checklists (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  user_id TEXT DEFAULT 'default'
+);
+
+CREATE INDEX IF NOT EXISTS idx_checklists_user_id ON checklists(user_id);
+
+ALTER TABLE checklists ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow all operations on checklists" ON checklists
+  FOR ALL
+  USING (true)
+  WITH CHECK (true);
+
+CREATE TRIGGER update_checklists_updated_at
+  BEFORE UPDATE ON checklists
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- Create the checklist_items table
+CREATE TABLE IF NOT EXISTS checklist_items (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  title TEXT NOT NULL,
+  checklist_id UUID NOT NULL REFERENCES checklists(id) ON DELETE CASCADE,
+  is_completed BOOLEAN DEFAULT FALSE,
+  sort_order INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  user_id TEXT DEFAULT 'default'
+);
+
+CREATE INDEX IF NOT EXISTS idx_checklist_items_checklist_id ON checklist_items(checklist_id);
+CREATE INDEX IF NOT EXISTS idx_checklist_items_user_id ON checklist_items(user_id);
+
+ALTER TABLE checklist_items ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow all operations on checklist_items" ON checklist_items
+  FOR ALL
+  USING (true)
+  WITH CHECK (true);
+
+CREATE TRIGGER update_checklist_items_updated_at
+  BEFORE UPDATE ON checklist_items
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
 -- Optional: Insert some sample data
 INSERT INTO buckets (title, description, category, status, priority, sort_order) VALUES
   ('Watch the sunset together', 'Find a beautiful spot to watch the sunset', 'Romance', 'Not Started', 'High', 0),
