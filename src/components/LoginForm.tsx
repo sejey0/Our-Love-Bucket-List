@@ -70,8 +70,9 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
                   dateFormat="MMMM d, yyyy"
                   showMonthDropdown
                   showYearDropdown
-                  dropdownMode="select"
-                  yearDropdownItemNumber={15}
+                  dropdownMode="scroll"
+                  scrollableYearDropdown
+                  yearDropdownItemNumber={30}
                 />
               </div>
               {selectedDate && (
