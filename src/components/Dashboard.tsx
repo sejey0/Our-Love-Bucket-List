@@ -128,31 +128,34 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       toast.error("Please enter an item");
       return;
     }
+    const tempId = `temp-${Date.now()}`;
+    const tempItem: BucketItem = {
+      id: tempId, title, description: "", category, target_date: null,
+      status: "Not Started", priority: "Medium", created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(), user_id: "default", sort_order: items.length,
+      completed_at: null, photo_url: null,
+    };
+    setItems((prev) => [...prev, tempItem]);
+    setNewItems((prev) => ({ ...prev, [category]: "" }));
+    toast.success("Added!");
     try {
       const res = await fetch("/api/buckets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title,
-          category,
-          priority: "Medium",
-          status: "Not Started",
-        }),
+        body: JSON.stringify({ title, category, priority: "Medium", status: "Not Started" }),
       });
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || "Failed to create");
-      }
-      toast.success("Added!");
-      setNewItems((prev) => ({ ...prev, [category]: "" }));
-      fetchItems();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to add item");
+      if (!res.ok) throw new Error("Failed to create");
+      const created = await res.json();
+      setItems((prev) => prev.map((i) => (i.id === tempId ? created : i)));
+    } catch {
+      setItems((prev) => prev.filter((i) => i.id !== tempId));
+      toast.error("Failed to add item");
     }
   };
 
   const handleToggleComplete = async (item: BucketItem) => {
     if (item.status === "Completed") {
+      setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, status: "Not Started" as const, completed_at: null } : i));
       try {
         const res = await fetch(`/api/buckets/${item.id}`, {
           method: "PUT",
@@ -160,8 +163,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
           body: JSON.stringify({ status: "Not Started", completed_at: null }),
         });
         if (!res.ok) throw new Error("Failed to update");
-        fetchItems();
       } catch {
+        setItems((prev) => prev.map((i) => i.id === item.id ? item : i));
         toast.error("Failed to update");
       }
     } else {
@@ -174,40 +177,39 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
   const handleConfirmComplete = async () => {
     if (!completingItem) return;
+    const completedAt = completeDate ? new Date(completeDate).toISOString() : new Date().toISOString();
+    const desc = completeDesc.trim() || completingItem.description;
+    const photoUrl = completePhotos.length > 0 ? JSON.stringify(completePhotos) : completingItem.photo_url;
+    const original = completingItem;
+    setItems((prev) => prev.map((i) => i.id === completingItem.id ? { ...i, status: "Completed" as const, description: desc, completed_at: completedAt, photo_url: photoUrl } : i));
+    toast.success("Marked as done!");
+    setCompletingItem(null);
+    setCompleteDesc("");
+    setCompletePhotos([]);
     try {
-      const updateData: Record<string, unknown> = {
-        status: "Completed",
-        description: completeDesc.trim() || completingItem.description,
-        completed_at: completeDate
-          ? new Date(completeDate).toISOString()
-          : new Date().toISOString(),
-      };
-      if (completePhotos.length > 0) {
-        updateData.photo_url = JSON.stringify(completePhotos);
-      }
-      const res = await fetch(`/api/buckets/${completingItem.id}`, {
+      const updateData: Record<string, unknown> = { status: "Completed", description: desc, completed_at: completedAt };
+      if (completePhotos.length > 0) updateData.photo_url = JSON.stringify(completePhotos);
+      const res = await fetch(`/api/buckets/${original.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updateData),
       });
       if (!res.ok) throw new Error("Failed to update");
-      toast.success("Marked as done!");
-      setCompletingItem(null);
-      setCompleteDesc("");
-      setCompletePhotos([]);
-      fetchItems();
     } catch {
+      setItems((prev) => prev.map((i) => i.id === original.id ? original : i));
       toast.error("Failed to complete");
     }
   };
 
   const handleDeleteItem = async (id: string) => {
+    const original = items.find((i) => i.id === id);
+    setItems((prev) => prev.filter((i) => i.id !== id));
+    toast.success("Removed!");
     try {
       const res = await fetch(`/api/buckets/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete");
-      toast.success("Removed!");
-      fetchItems();
     } catch {
+      if (original) setItems((prev) => [...prev, original]);
       toast.error("Failed to delete");
     }
   };
@@ -217,18 +219,21 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       toast.error("Title cannot be empty");
       return;
     }
+    const original = items.find((i) => i.id === id);
+    const newTitle = editTitle.trim();
+    setItems((prev) => prev.map((i) => i.id === id ? { ...i, title: newTitle } : i));
+    toast.success("Updated!");
+    setEditingItem(null);
+    setEditTitle("");
     try {
       const res = await fetch(`/api/buckets/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: editTitle.trim() }),
+        body: JSON.stringify({ title: newTitle }),
       });
       if (!res.ok) throw new Error("Failed to update");
-      toast.success("Updated!");
-      setEditingItem(null);
-      setEditTitle("");
-      fetchItems();
     } catch {
+      if (original) setItems((prev) => prev.map((i) => i.id === id ? original : i));
       toast.error("Failed to update");
     }
   };
@@ -248,16 +253,19 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       const item = items.find((i) => i.id === itemId);
       const existing = item ? getMediaUrls(item.photo_url) : [];
       const allPhotos = [...existing, base64];
+      const newPhotoUrl = JSON.stringify(allPhotos);
+      const originalPhotoUrl = item?.photo_url ?? null;
+      setItems((prev) => prev.map((i) => i.id === itemId ? { ...i, photo_url: newPhotoUrl } : i));
+      toast.success("Photo uploaded!");
       try {
         const res = await fetch(`/api/buckets/${itemId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ photo_url: JSON.stringify(allPhotos) }),
+          body: JSON.stringify({ photo_url: newPhotoUrl }),
         });
         if (!res.ok) throw new Error("Failed to upload");
-        toast.success("Photo uploaded!");
-        fetchItems();
       } catch {
+        setItems((prev) => prev.map((i) => i.id === itemId ? { ...i, photo_url: originalPhotoUrl } : i));
         toast.error("Failed to upload photo");
       }
     };
@@ -265,6 +273,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   };
 
   const handleRemovePhoto = async (itemId: string) => {
+    const original = items.find((i) => i.id === itemId);
+    const originalPhotoUrl = original?.photo_url ?? null;
+    setItems((prev) => prev.map((i) => i.id === itemId ? { ...i, photo_url: null } : i));
+    toast.success("Photo removed");
     try {
       const res = await fetch(`/api/buckets/${itemId}`, {
         method: "PUT",
@@ -272,9 +284,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         body: JSON.stringify({ photo_url: null }),
       });
       if (!res.ok) throw new Error("Failed to remove");
-      toast.success("Photo removed");
-      fetchItems();
     } catch {
+      setItems((prev) => prev.map((i) => i.id === itemId ? { ...i, photo_url: originalPhotoUrl } : i));
       toast.error("Failed to remove photo");
     }
   };
@@ -1449,19 +1460,22 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                   const existing = item
                     ? getMediaUrls(item.photo_url)
                     : [];
+                  const originalPhotoUrl = item?.photo_url ?? null;
                   const allPhotos = [...existing, ...newBase64s];
+                  const newPhotoUrl = JSON.stringify(allPhotos);
+                  setItems((prev) => prev.map((i) => i.id === itemId ? { ...i, photo_url: newPhotoUrl } : i));
+                  toast.success(
+                    `${newBase64s.length} file${newBase64s.length > 1 ? "s" : ""} uploaded!`
+                  );
                   try {
                     const res = await fetch(`/api/buckets/${itemId}`, {
                       method: "PUT",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ photo_url: JSON.stringify(allPhotos) }),
+                      body: JSON.stringify({ photo_url: newPhotoUrl }),
                     });
                     if (!res.ok) throw new Error("Failed to upload");
-                    toast.success(
-                      `${newBase64s.length} file${newBase64s.length > 1 ? "s" : ""} uploaded!`
-                    );
-                    fetchItems();
                   } catch {
+                    setItems((prev) => prev.map((i) => i.id === itemId ? { ...i, photo_url: originalPhotoUrl } : i));
                     toast.error("Failed to upload photos");
                   }
                 }
