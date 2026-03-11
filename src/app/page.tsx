@@ -13,9 +13,6 @@ export default function Home() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-cream">
         <div className="text-center">
-          <div className="w-16 h-16 mx-auto rounded-full bg-gradient-romantic flex items-center justify-center shadow-rose-lg mb-4 animate-pulse-slow">
-            <span className="text-3xl">💝</span>
-          </div>
           <div className="w-8 h-8 border-4 border-petal border-t-rose-gold rounded-full animate-spin mx-auto" />
         </div>
       </div>
