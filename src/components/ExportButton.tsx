@@ -20,7 +20,7 @@ export default function ExportButton({ items }: ExportButtonProps) {
       // Title
       doc.setFontSize(24);
       doc.setTextColor(183, 110, 121);
-      doc.text("Our Bucket List", 105, 20, { align: "center" });
+      doc.text("Our Love Bucket List", 105, 20, { align: "center" });
 
       // Subtitle
       doc.setFontSize(10);
@@ -78,7 +78,7 @@ export default function ExportButton({ items }: ExportButtonProps) {
         align: "center",
       });
 
-      doc.save("our-bucket-list.pdf");
+      doc.save("our-love-bucket-list.pdf");
       toast.success("PDF exported successfully!");
     } catch {
       toast.error("Failed to export PDF");

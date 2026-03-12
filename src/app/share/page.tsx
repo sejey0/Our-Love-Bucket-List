@@ -50,7 +50,7 @@ export default function SharePage() {
             <span className="text-3xl">💝</span>
           </div>
           <h1 className="heading-cursive text-5xl text-gradient mb-2">
-            Our Bucket List
+            Our Love Bucket List
           </h1>
           <p className="text-rose-gold/60">
             {items.length} dreams | {completed} completed | {percentage}% done

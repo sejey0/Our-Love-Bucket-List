@@ -24,7 +24,7 @@ export default function Header({
         <div className="flex items-center gap-4">
           <h1 className="text-xl font-bold text-white">
             {activeSection === "bucket"
-              ? "Our Bucket List"
+              ? "Our Love Bucket List"
               : activeSection === "checklist"
                 ? "Our Checklist"
                 : "Us"}

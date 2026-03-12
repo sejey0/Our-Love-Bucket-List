@@ -46,7 +46,7 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
           {/* Logo */}
           <div className="text-center mb-4">
             <h1 className="text-2xl font-bold text-gradient mb-1">
-              Our Bucket List
+              Our Love Bucket List & Checklist
             </h1>
             <p className="text-rose-gold/60 text-xs">
               Answer the question to unlock our adventures
@@ -69,14 +69,32 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
                   onMonthChange={(date: Date) => {
                     if (selectedDate) {
                       const updated = new Date(date);
-                      updated.setDate(Math.min(selectedDate.getDate(), new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()));
+                      updated.setDate(
+                        Math.min(
+                          selectedDate.getDate(),
+                          new Date(
+                            date.getFullYear(),
+                            date.getMonth() + 1,
+                            0,
+                          ).getDate(),
+                        ),
+                      );
                       setSelectedDate(updated);
                     }
                   }}
                   onYearChange={(date: Date) => {
                     if (selectedDate) {
                       const updated = new Date(date);
-                      updated.setDate(Math.min(selectedDate.getDate(), new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()));
+                      updated.setDate(
+                        Math.min(
+                          selectedDate.getDate(),
+                          new Date(
+                            date.getFullYear(),
+                            date.getMonth() + 1,
+                            0,
+                          ).getDate(),
+                        ),
+                      );
                       setSelectedDate(updated);
                     }
                   }}
@@ -91,7 +109,12 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
               </div>
               {selectedDate && (
                 <p className="mt-1.5 text-center text-xs text-rose-gold font-semibold">
-                  Selected: {selectedDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                  Selected:{" "}
+                  {selectedDate.toLocaleDateString("en-US", {
+                    month: "long",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
                 </p>
               )}
               {error && (

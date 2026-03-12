@@ -14,8 +14,8 @@ const greatVibes = Great_Vibes({
 });
 
 export const metadata: Metadata = {
-  title: "Us — Our Bucket List",
-  description: "A special bucket list for our adventures together",
+  title: "Us — Our Love Bucket List & Checklist",
+  description: "Our love bucket list and checklist for adventures together",
   icons: {
     icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90" fill="%23b76e79">&#x2665;</text></svg>',
   },
