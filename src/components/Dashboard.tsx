@@ -155,6 +155,39 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     }
     fetchBucketLists();
     fetchItems();
+
+    // Pre-fetch checklist data so it loads instantly when the user opens it
+    fetch("/api/checklists")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data)
+          try {
+            localStorage.setItem("cached-checklists", JSON.stringify(data));
+          } catch {
+            /* ignore */
+          }
+      })
+      .catch(() => {});
+    fetch("/api/checklist-items")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data)
+          try {
+            const lite = data.map(
+              (item: {
+                photo_url?: string | null;
+                [key: string]: unknown;
+              }) => ({ ...item, photo_url: null }),
+            );
+            localStorage.setItem(
+              "cached-checklist-items",
+              JSON.stringify(lite),
+            );
+          } catch {
+            /* ignore */
+          }
+      })
+      .catch(() => {});
   }, [fetchBucketLists, fetchItems]);
 
   const handleCreateList = async () => {

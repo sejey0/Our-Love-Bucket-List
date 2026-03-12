@@ -124,6 +124,11 @@ export default function ChecklistDashboard() {
       if (!res.ok) throw new Error("Failed to fetch checklists");
       const data = await res.json();
       setChecklists(data);
+      try {
+        localStorage.setItem("cached-checklists", JSON.stringify(data));
+      } catch {
+        /* quota exceeded, ignore */
+      }
     } catch {
       console.error("Failed to fetch checklists");
     }
@@ -135,6 +140,15 @@ export default function ChecklistDashboard() {
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       setChecklistItems(data);
+      try {
+        const lite = data.map((item: ChecklistItem) => ({
+          ...item,
+          photo_url: null,
+        }));
+        localStorage.setItem("cached-checklist-items", JSON.stringify(lite));
+      } catch {
+        /* quota exceeded, ignore */
+      }
     } catch {
       console.error("Failed to fetch checklist items");
     } finally {
@@ -142,7 +156,25 @@ export default function ChecklistDashboard() {
     }
   }, []);
 
+  // Load cached data instantly, then refresh from server
   useEffect(() => {
+    const cachedLists = localStorage.getItem("cached-checklists");
+    if (cachedLists) {
+      try {
+        setChecklists(JSON.parse(cachedLists));
+      } catch {
+        /* ignore */
+      }
+    }
+    const cachedItems = localStorage.getItem("cached-checklist-items");
+    if (cachedItems) {
+      try {
+        setChecklistItems(JSON.parse(cachedItems));
+        setIsLoading(false);
+      } catch {
+        /* ignore */
+      }
+    }
     fetchChecklists();
     fetchChecklistItems();
   }, [fetchChecklists, fetchChecklistItems]);
